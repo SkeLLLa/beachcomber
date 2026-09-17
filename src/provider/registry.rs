@@ -94,6 +94,10 @@ impl ProviderRegistry {
     pub fn source_for_field(&self, provider: &str, field: &str) -> Option<&str> {
         self.field_to_source
             .get(&(provider.to_string(), field.to_string()))
+            .or_else(|| {
+                self.field_to_source
+                    .get(&(provider.to_string(), "<field>".to_string()))
+            })
             .map(|s| s.as_str())
     }
 
@@ -435,6 +439,18 @@ mod tests {
         assert_eq!(reg.source_for_field("git", "branch"), Some("refs"));
         assert_eq!(reg.source_for_field("git", "lines_added"), Some("diff"));
         assert_eq!(reg.source_for_field("git", "nonexistent"), None);
+    }
+
+    #[test]
+    fn register_resolves_dynamic_field_placeholder() {
+        let mut reg = ProviderRegistry::new();
+        let p = FakeProvider {
+            name: "public_ip".into(),
+            sources: vec![ms("endpoint", vec!["<field>"])],
+        };
+        reg.register(Box::new(p)).unwrap();
+
+        assert_eq!(reg.source_for_field("public_ip", "body"), Some("endpoint"));
     }
 
     #[test]
